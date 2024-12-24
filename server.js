@@ -92,11 +92,14 @@ app.post('/reset-password/:token', async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // Find the user based on email (no need to store the token in DB)
-        const user = await User.findOne({ email: decoded.email });
+        // const user = await User.findOne({ email: decoded.email });
+        const user = await User.findOne({ _id: decoded._id, resetToken: token, expireToken: { $gt: Date.now() } });
         if (!user) return res.status(400).send({ error: 'Invalid token or user not found' });
 
         // Hash the new password
         user.password = await bcrypt.hash(newPassword, 10);
+        user.resetToken = undefined;
+        user.expireToken = undefined;
         await user.save();
 
         res.send({ message: 'Password reset successful' });
