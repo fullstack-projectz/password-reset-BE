@@ -91,11 +91,18 @@ app.post('/reset-password/:token', async (req, res) => {
         // Verify the token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Find the user based on the token payload
-        const user = await User.findOne({ email: decoded.email, resetToken: token, expireToken: { $gt: Date.now() } });
-        if (!user) return res.status(400).send({ error: 'Invalid token or user not found' });
+        // Find the user by email and verify token/expiration
+        const user = await User.findOne({
+            email: decoded.email,
+            resetToken: token,
+            expireToken: { $gt: Date.now() },
+        });
 
-        // Hash the new password and update user record
+        if (!user) {
+            return res.status(400).send({ error: 'Invalid token or user not found' });
+        }
+
+        // Hash the new password and update the user document
         user.password = await bcrypt.hash(newPassword, 10);
         user.resetToken = undefined;
         user.expireToken = undefined;
