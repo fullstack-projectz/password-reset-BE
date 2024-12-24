@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const User = require('./models/User');  // Ensure User model is defined
+const User = require('./models/User'); // Ensure User model is defined
 
 dotenv.config();
 const app = express();
@@ -22,7 +22,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose
+    .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log(err));
 
@@ -58,10 +59,15 @@ app.post('/forgot-password', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Generate reset token (JWT token with expiration)
-        const resetToken = jwt.sign({ email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        
+        const resetToken = jwt.sign({ email: user.email, _id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-        // Construct the reset password link
+        
+        user.resetToken = resetToken;
+        user.expireToken = Date.now() + 3600000; // 1 hour from now
+        await user.save();
+
+      
         const resetLink = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
         // Send email with the reset link
@@ -93,7 +99,7 @@ app.post('/reset-password/:token', async (req, res) => {
 
         // Find the user by email and verify token/expiration
         const user = await User.findOne({
-            email: decoded.email,
+            _id: decoded._id,
             resetToken: token,
             expireToken: { $gt: Date.now() },
         });
@@ -115,23 +121,22 @@ app.post('/reset-password/:token', async (req, res) => {
     }
 });
 
-
 // Login Endpoint
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
-        return res.status(404).json({ message: "Email not registered" });
+        return res.status(404).json({ message: 'Email not registered' });
     }
 
     // Validate password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-        return res.status(400).json({ message: "Invalid password" });
+        return res.status(400).json({ message: 'Invalid password' });
     }
 
-    res.status(200).json({ message: "Login successful" });
+    res.status(200).json({ message: 'Login successful' });
 });
 
 // Signup Endpoint
